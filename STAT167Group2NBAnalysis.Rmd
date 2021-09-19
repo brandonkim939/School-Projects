@@ -1,0 +1,237 @@
+---
+title: "STAT 167 - Group 2/ NBAnalysis"
+author: "Brandon Kim,Mustafa Abdel,Kaiyu Sun,Dinh Bui,Rachel Santiago"
+date: "June 1, 2018"
+output: html_document
+---
+
+**Introduction and project description**
+For our project we set out to analyze the impact of pace and location on NBA players and their teams between the 2000-2018 season. Through the use of line graphs, state maps, and linear regression we were able to efficiently analyze the impact of these factors. We use these factors to conduct a deep analysis of the transformation of play style and the effects it had on player position, usage, and efficiency. We analyzed several different factors to see if there was a correlation with winning percentage.
+
+**Data exploration and visualization**
+- Used dplyr packages to merge/clean data sets.
+- Used step graphs, line graphs, and scatterplots to visualize metrics such as PER, pace, scoring and such.
+- Used residual plots and qq-plots to visualize model assumptions for regression analysis.
+- Used states map to visualize magnitude of winning percentage per location. 
+
+**Model evaluation and validations**
+Conducted linear regressions for the change in pace which is a metric used by the NBA to analyze how fast/volume of shooting in a basketball game (Brandon and Mustafa). We then used pace as an independent variable to check the influence on other metrics such as overall scoring, 3-point shooting, efficiency rating, and usage rate. We then transitioned into to the analysis of team attendance towards salary using multiple linear regression (Kaiyu Sun). We saw the regression fit not holding a lot of strength with low values of R-sq which leads us to our third question. We wanted to visualize a map showing magnitude of location of that NBA team and if we can see a trend in seeing an impact on winning percentage (Dinh Bui). We saw a trend in larger winning percentages teams if they were located in big market locations such as Texas and California. 
+
+```{r, echo=TRUE}
+# Responsible for question 1 - Pace
+library(dplyr)
+library(readxl)
+library(tidyverse)
+setwd("C:/Users/Brandonkim939/Desktop/School/STAT 167/Project")
+NBAplayers <- read.csv("NBA Season Data.csv",header=T)
+recentplayers <- NBAplayers %>%
+  filter(Year>=1998 & Year<=2016) %>%
+  filter(G > 41) #Only consider players that played 41 of 82 games.
+
+thpachange <- recentplayers %>%
+  group_by(Year,Rounded.Position) %>%
+  filter(!is.na(X3PAr)) %>%
+  summarise(average3PAr = mean(X3PAr))
+
+PERchange <- recentplayers %>%
+  group_by(Year,Rounded.Position) %>%
+  filter(!is.na(PER)) %>%
+  summarise(averagePER = mean(PER))
+
+
+PERUSGTHREE <- recentplayers %>%
+    group_by(Year,Rounded.Position) %>%
+    filter(!is.na(PER)) %>%
+    summarise(averageUSG = mean(USG.),averagePER=mean(PER),average3PAr=mean(X3PAr),averageMP=mean(MP),averageMPG=mean(MPG.1))
+   
+# usg visualization
+usg <- ggplot(data=PERUSGTHREE,mapping=aes(x=Year,y=averageUSG)) + 
+  geom_step(aes(col=Rounded.Position)) +          facet_wrap(~Rounded.Position,ncol=2) +
+ggtitle("Average usage rate per position")
+usg
+# PER visualization
+per1 <- ggplot(data=PERchange,mapping=aes(x=Year,y=averagePER)) + 
+  geom_point(aes(col=Rounded.Position)) +
+  geom_smooth(method='lm',se=FALSE) + facet_wrap(~Rounded.Position,ncol=2) + ggtitle("Average PER by position")
+per1
+(perleague <- PERchange %>%
+  group_by(Year) %>%
+  summarise(averagePER = mean(averagePER))
+)
+per2 <- ggplot(data=perleague,mapping=aes(x=Year,y=averagePER)) + 
+  geom_point() + geom_smooth(method='lm',se=FALSE) + ggtitle("Average PER league-wide")
+per2
+permodel <- lm(data=perleague,averagePER~Year) # linearity check for league per to see if there was change
+summary(permodel) # no relationship between year and average per
+(perpg <- PERchange %>%
+    filter(Rounded.Position == 1) )
+(persg <- PERchange %>%
+    filter(Rounded.Position == 2) )
+(persf <- PERchange %>%
+    filter(Rounded.Position == 3) ) 
+(perpf <- PERchange %>%
+    filter(Rounded.Position == 4) )
+(perc <- PERchange %>%
+    filter(Rounded.Position == 5) )
+modelpg <- lm(data=perpg,averagePER~Year)
+summary(modelpg)
+modelsg <- lm(data=persg,averagePER~Year)
+summary(modelsg)
+modelsf <- lm(data=persf,averagePER~Year)
+summary(modelsf)
+modelpf <- lm(data=perpf,averagePER~Year)
+summary(modelpf)
+modelc <- lm(data=perc,averagePER~Year)
+summary(modelc)
+# 3par visualization
+par <- ggplot(data=thpachange,mapping=aes(x=Year,y=average3PAr)) + 
+  geom_line(aes(col=Rounded.Position)) + facet_wrap(~Rounded.Position,ncol=2) + ggtitle("Average 3PAr by position")
+par
+require(gridExtra)
+grid.arrange(per1,per2,ncol=1)
+```
+
+```{r,echo=TRUE}
+Salary <- read.csv("nba_salaries_1990_to_2018.csv",header=T)
+```
+
+
+```{r,echo=TRUE}
+league <- read.csv("league average.csv",header=T,skip=1)
+# Regression/visualization for pace
+ggplot(data=league,aes(x=Season,y=Pace)) + 
+  geom_line(aes(x=Season,y=Pace) ) +
+  labs(x="Year") +
+  ggtitle("Pace over the years")
+pacemodel <- lm(data=league,PTS~Pace)
+summary(pacemodel)
+# pace vs points visualization
+pacepts <- ggplot(league,aes(Pace,PTS))
+pacepts + geom_point() + geom_smooth(method='lm') +
+  ggtitle("Pace to Scoring")
+# visualization for league wide 3 point shots
+threemakes <- ggplot(data=league,aes(x=Season,y=X3P)) + geom_step(color='blue') + ylab("Average 3PT Attempts") + ggtitle("League-wide 3-pt attempts")
+threemakes
+```
+```{r,echo=TRUE}
+# Question 2 
+salaryData <- read.csv(file="nba_salaries_1990_to_2018.csv", header=TRUE, sep=",")
+
+
+
+attendance <- read.csv(file="NBA Team Annual Attendance.csv", header=TRUE, sep =",")
+str(attendance)
+
+colnames(attendance)[colnames(attendance)=="ï..Starting.Year"] <- "season_start"
+colnames(attendance)[colnames(attendance)=="Home..Avg.Attendance"] <- "home_avg_attendance"
+attendance
+
+
+
+sdata <- salaryData %>% group_by(season_start, team_name) %>%
+  summarise(player_count = n(), avg_salary = mean(salary)) %>%
+  filter(season_start >= 2000 & season_start <= 2015)
+sdata
+
+# sdata %>% filter(season_start >= 2000 & season_start <= 2015)
+
+attendance$team_name <- ifelse(grepl("Bulls", attendance$Team, ignore.case = T), "Chicago Bulls",
+                         ifelse(grepl("Cavaliers", attendance$Team, ignore.case = T), "Cleveland Caveliers", ifelse(grepl("Mavericks", attendance$Team, ignore.case = T), "Dallas Mavericks",
+                                                                                                                          ifelse(grepl("Raptors", attendance$Team, ignore.case = T), "Toronto Raptors",
+                                                                                                                          ifelse(grepl("NY Knicks", attendance$Team, ignore.case = T), "New York Knicks",
+                                                                                                                          ifelse(grepl("Heat", attendance$Team, ignore.case = T), "Miami Heat",
+                                                                                                                          ifelse(grepl("Warriors", attendance$Team, ignore.case = T), "Golden State Warriors",
+                                                                                                                          ifelse(grepl("Trail Blazers", attendance$Team, ignore.case = T), "Portland Trail Blazers",
+                                                                                                                          ifelse(grepl("Jazz", attendance$Team, ignore.case = T), "Utah Jazz",
+                                                                                                                          ifelse(grepl("Clippers", attendance$Team, ignore.case = T), "Los Angeles Clippers",
+                                                                                                                          ifelse(grepl("Lakers", attendance$Team, ignore.case = T), "Los Angeles Lakers",
+                                                                                                                          ifelse(grepl("Spurs", attendance$Team, ignore.case = T), "San Antonio Spurs",
+                                                                                                                          ifelse(grepl("Celtics", attendance$Team, ignore.case = T), "Boston Celtic",
+                                                                                                                          ifelse(grepl("Thunder", attendance$Team, ignore.case = T), "Oklahoma City Thunder",
+                                                                                                                          ifelse(grepl("Rockets", attendance$Team, ignore.case = T), "Houston Rockets",
+                                                                                                                          ifelse(grepl("Wizards", attendance$Team, ignore.case = T), "Washington Wizards",
+                                                                                                                          ifelse(grepl("Magic", attendance$Team, ignore.case = T), "Orlando Magic",
+                                                                                                                          ifelse(grepl("Hornets", attendance$Team, ignore.case = T), "Charlotte Hornets",
+                                                                                                                          ifelse(grepl("Kings", attendance$Team, ignore.case = T), "Sacramento Kings",
+                                                                                                                          ifelse(grepl("Suns", attendance$Team, ignore.case = T), "Phoenix Suns", 
+                                                                                                                          ifelse(grepl("Pacers", attendance$Team, ignore.case = T), "Indiana Pacers",
+                                                                                                                          ifelse(grepl("Hawks", attendance$Team, ignore.case = T), "Atlanta Hawks",
+                                                                                                                          ifelse(grepl("Pelicans", attendance$Team, ignore.case = T), "New Orleans Pelicans",
+                                                                                                                          ifelse(grepl("Grizzlies", attendance$Team, ignore.case = T), "Memphis Grizzlies",
+                                                                                                                          ifelse(grepl("Pistons", attendance$Team, ignore.case = T), "Detroit Pistons",
+                                                                                                                          ifelse(grepl("Bucks", attendance$Team, ignore.case = T), "Milwaukee Bucks",
+                                                                                                                          ifelse(grepl("Nets", attendance$Team, ignore.case = T), "Brooklyn Nets",
+                                                                                                                          ifelse(grepl("76ers", attendance$Team, ignore.case = T), "Philadelphia 76ers",
+                                                                                                                          ifelse(grepl("Timberwolves", attendance$Team, ignore.case = T), "Minnesota Timberwolves",
+                                                                                                                          ifelse(grepl("Nuggets", attendance$Team, ignore.case = T), "Denver Nuggets",""                                                                                           ))))))))))))))))))))))))))))))
+# Renaming team names and put them in new column under team_name.  
+
+# attendance %>% select(Starting.Year, Home..Avg.Attendance,team_name)
+
+```
+
+```{r,echo=TRUE}
+# Question 3
+##############
+# Read Historical NBA Performances csv file
+(NBA_History <- read.csv("Historical NBA Performance2.csv", sep = "\t"))
+(NBA_Team_Location <- read.table("teamlocation.txt", sep = "\t", header = TRUE) %>%
+  mutate(Team = as.character(Team)))
+
+# Merge team location with NBA_History information 
+NBA_History <- full_join(by="Team",NBA_History, NBA_Team_Location)
+
+# Convert year from factor to numeric and reset the years
+NBA_History <- mutate(NBA_History, Year = as.numeric(Year) + 1945)
+
+# Check the number of teams/franchise for each year
+count(NBA_History, Year) 
+
+# Keep only records from years 2005 to 2015
+NBA_History_2005_to_2015 <- filter(NBA_History, Year >= 2005, Year <= 2015)
+NBA_History_2005_to_2015
+
+# Check Team Knicks for duplicate record from 2005 to 2015
+filter(NBA_History_2005_to_2015, Team == "Knicks")
+
+# Count number of times each team are represented in the finals from year 2005 to 2015
+count(NBA_History_2005_to_2015, Team)
+
+# Check overall winning percentage for each team from the years 2005 to 2015 
+NBA_History_Overall_Win <- group_by(NBA_History_2005_to_2015, Team, lat, lon) %>%
+                            summarize(`Mean Winning Percentage` = mean(Winning.Percentage)) %>%
+                            arrange(`Mean Winning Percentage`)
+
+c(NBA_History_Overall_Win$lon)
+c(NBA_History_Overall_Win$lat)
+
+# Plot map of team location
+TeamLoc <- data.frame(long = c(NBA_History_Overall_Win$lon), 
+                      lat = c(NBA_History_Overall_Win$lat))
+
+ggplot(data = map_data('state')) +
+  geom_polygon(mapping = aes(x = long, y = lat, group = group), fill = "chartreuse", 
+               color = "blue") + 
+  geom_point(data = NBA_History_Overall_Win, aes(x = lon, y = lat, 
+                                                 size = `Mean Winning Percentage`, 
+                                                 alpha = `Mean Winning Percentage`), 
+             colour = "black")
+```
+
+**Model Evaluation and Validations**
+Used typical model assumptions for normality and homogeneity of variances per linear models. Had solid R-sq for the analysis on the single linear regression for question 1. We struggled to find a solid R-sq for the multiple linear regression for salary so we furthered our analysis with a visualization on location as a dependent variable to help predict winning. 
+
+**Conclusions and discussion**
+We were able to conclude that there was a strong linear correlation between pace and points and three pointers. We found that once pace improved, we did see that pace had an impact on the usage of different positions but did not affect overall efficiency. Although salary did not translate to a higher win percentage, team location seemed to have a large impact with bigger market teams having a higher overall win percentage.
+
+**Authors' contributions [clarify each team member's contribution]**
+Brandon Kim - Overall coding, proposal writing, proposal originator, question 1
+Dinh Bui - Overall coding, data cleaning/finding, question 3
+Kaiyu Sun- Overall coding, graph explanation, linear regression modeling, question 2
+Mustafa Abdel - data finding/cleaning, proposal originator, powerpoint, write up 
+
+**References**
+Basketball-reference.com 
+Data.world
+Kraggle.com
+Personal research 
