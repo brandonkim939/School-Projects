@@ -1,0 +1,185 @@
+---
+title: "183IndividualProject"
+author: "Brandon Kim"
+date: "April 25, 2018"
+output: pdf_document
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+library(dplyr)
+library(gridExtra)
+library(MASS)
+library(agricolae)
+setwd("C:/Users/Brandonkim939/Desktop/School/STAT 183/Individual Project")
+biochar <- read.csv("biochar.csv",header=TRUE)
+# Model for shoot weight 
+shootweight <- aov(biochar$shoot.weight..g.~biochar$Wheat*biochar$Soil*biochar$Biochar)
+summary(shootweight)
+# Shoot Weight = wheat + soil + wheat*soil
+Soil <- biochar$Soil
+WheatSoil <- biochar$Wheat:biochar$Soil
+ShootWeight <- biochar$shoot.weight..g.
+biochar %>% filter(!is.na(root.shoot.ratio))
+```
+
+```{r}
+# Model for shallow root weight
+shallowrootweight <- aov(biochar$shallow.root.weight..g.~biochar$Wheat*biochar$Soil*biochar$Biochar)
+(qq1 <- ggplot(biochar, aes(sample=shallow.root.weight..g.)) + stat_qq())
+p1<-ggplot(shallowrootweight, aes(.fitted, .resid))+geom_point()
+    p1<-p1+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+    p1<-p1+xlab("Fitted values")+ylab("Residuals")
+    p1<-p1+ggtitle("Residual vs Fitted Plot")+theme_bw()
+p1
+shapiro.test(biochar$shallow.root.weight..g.)
+(bx1 <- boxcox(shallowrootweight, data = biochar,
+       lambda = seq(-2, 2, length = 10))) # no transformation needed ~ 1 is in the interval
+(model1 <- summary(shallowrootweight)) # drop 3-way interaction
+shallowrootweight <- aov(biochar$shallow.root.weight..g.~biochar$Wheat+biochar$Soil+biochar$Biochar
+                         +biochar$Wheat*biochar$Soil+biochar$Soil*biochar$Biochar+biochar$Wheat*biochar$Biochar)
+(model1 <- summary(shallowrootweight)) # drop 2-way interactions
+shallowrootweight <- aov(biochar$shallow.root.weight..g.~biochar$Wheat+biochar$Soil+biochar$Biochar)
+(model1 <- summary(shallowrootweight))
+# Final model = soil + biochar
+shallowrootweight <- aov(biochar$shallow.root.weight..g.~biochar$Soil+biochar$Biochar)
+(model1 <- summary(shallowrootweight))
+# LSD for soil
+df<-df.residual(shallowrootweight)
+MSerror<-deviance(shallowrootweight)/df
+out1 <- with(biochar,LSD.test(shallow.root.weight..g.,Soil,df,MSerror))
+plot(out1,ylab="Shallow Root Weight") # LSD plot
+(posthocsoil <- TukeyHSD(x=shallowrootweight,'biochar$Soil', conf.level=0.95)) # Use to check if 0 is in interval
+# LSD for biochar
+out2 <- with(biochar,LSD.test(shallow.root.weight..g.,Biochar,df,MSerror))
+plot(out2,ylab="Shallow Root Weight") 
+(posthocbiochar <- TukeyHSD(x=shallowrootweight,'biochar$Biochar', conf.level=0.95)) 
+```
+
+```{r}
+# Model for deep root weight
+deeprootweight <- aov(biochar$deep.root.weight..g.~biochar$Wheat*biochar$Soil*biochar$Biochar)
+(qq2 <- ggplot(biochar, aes(sample=shoot.weight..g.)) + stat_qq())
+p2<-ggplot(deeprootweight, aes(.fitted, .resid))+geom_point()
+    p2<-p2+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+    p2<-p2+xlab("Fitted values")+ylab("Residuals")
+    p2<-p2+ggtitle("Residual vs Fitted Plot")+theme_bw()
+p2
+shapiro.test(biochar$deep.root.weight..g.)
+boxcox(deeprootweight, data = biochar,
+       lambda = seq(-.5, 1, length = 10))
+# transformation
+sqrtdeep <- sqrt(biochar$deep.root.weight..g.)
+model2 <- aov(sqrtdeep ~ biochar$Wheat*biochar$Soil*biochar$Biochar)
+(qq2 <- ggplot(biochar, aes(sample=sqrtdeep)) + stat_qq())
+p2<-ggplot(model2, aes(.fitted, .resid))+geom_point()
+    p2<-p2+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+    p2<-p2+xlab("Fitted values")+ylab("Residuals")
+    p2<-p2+ggtitle("Residual vs Fitted Plot")+theme_bw()
+p2
+shapiro.test(sqrtdeep)
+summary(model2)
+model2 <- aov(sqrtdeep ~ biochar$Biochar)
+summary(model2)
+df<-df.residual(model2)
+MSerror<-deviance(model2)/df
+out1 <- with(biochar,LSD.test(sqrtdeep,Biochar,df,MSerror))
+plot(out1,ylab="Deep Root Weight (transformed") # LSD plot
+(posthocsoil <- TukeyHSD(x=model2,'biochar$Biochar', conf.level=0.95))
+```
+
+```{r}
+# Model for total root weight
+totalrootweight <- aov(biochar$total.root.weight~biochar$Wheat*biochar$Soil*biochar$Biochar)
+summary(totalrootweight)
+(qq3 <- ggplot(biochar, aes(sample=total.root.weight)) + stat_qq()) 
+p3<-ggplot(totalrootweight, aes(.fitted, .resid))+geom_point()
+    p3<-p3+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+    p3<-p3+xlab("Fitted values")+ylab("Residuals")
+    p3<-p3+ggtitle("Residual vs Fitted Plot")+theme_bw()
+p3
+
+shapiro.test(biochar$total.root.weight)
+boxcox(totalrootweight, data = biochar,
+       lambda = seq(-2, 2, length = 10))
+totalrootweight <- aov(biochar$total.root.weight~biochar$Soil*biochar$Biochar)
+summary(totalrootweight)
+# model = soil + biochar + soil*biochar
+df<-df.residual(totalrootweight)
+MSerror<-deviance(totalrootweight)/df
+out1 <- with(biochar,LSD.test(total.root.weight,Soil,df,MSerror))
+(posthocsoil <- TukeyHSD(x=totalrootweight,'biochar$Soil:biochar$Biochar', conf.level=0.95)) # 0 in interval
+(biocharsoil <- ggplot(aes(x=Soil,color=Biochar,group=Biochar,y=total.root.weight),data=biochar) +
+  stat_summary(fun.y=mean,geom="point") +
+  stat_summary(fun.y=mean,geom="line"))
+```
+
+```{r}
+# Model for ratio
+
+summary(rootshootratio <- aov(biochar$root.shoot.ratio~biochar$Wheat*biochar$Soil*biochar$Biochar-biochar$Wheat:biochar$Soil:biochar$Biochar-biochar$Wheat:biochar$Biochar))
+(qq4 <- ggplot(biochar, aes(sample=biochar$root.shoot.ratio)) + stat_qq()) 
+p4<-ggplot(rootshootratio, aes(.fitted, .resid))+geom_point()
+    p3<-p3+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+    p3<-p3+xlab("Fitted values")+ylab("Residuals")
+    p3<-p3+ggtitle("Residual vs Fitted Plot")+theme_bw()
+p4
+shapiro.test(biochar$root.shoot.ratio)
+boxcox(rootshootratio, data = biochar,
+       lambda = seq(-2, 2, length = 10))
+summary(rootshootratio)
+rootshootratio <- aov(biochar$root.shoot.ratio ~ biochar$Wheat+biochar$Soil+biochar$Biochar
+                         +biochar$Wheat*biochar$Soil+biochar$Soil*biochar$Biochar)
+summary(rootshootratio)
+out1 <- with(biochar,LSD.test(root.shoot.ratio,Wheat:Soil,df,MSerror))
+(posthocint <- TukeyHSD(x=rootshootratio,'biochar$Wheat:biochar$Soil', conf.level=0.95))
+plot(out1,ylab="Root-Shoot Ratio")
+out2 <- with(biochar,LSD.test(root.shoot.ratio,Biochar,df,MSerror))
+(posthocint <- TukeyHSD(x=rootshootratio,'biochar$Soil:biochar$Biochar', conf.level=0.95))
+plot(out2,ylab="Root-Shoot Ratio")
+wheatsoil <- ggplot(data=biochar) +
+  aes(x = Soil, color = Wheat, group = Wheat, y = root.shoot.ratio) +
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.y = mean, geom = "line")
+wheatsoil
+soilbiochar <- ggplot(data=biochar) +
+  aes(x = Soil, color = Biochar, group = Biochar, y = root.shoot.ratio) +
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.y = mean, geom = "line") 
+soilbiochar
+
+```
+
+```{r}
+# Model for shoot weight 
+shootweight <- aov(biochar$shoot.weight..g.~biochar$Wheat*biochar$Soil*biochar$Biochar)
+(qq5 <- ggplot(biochar, aes(sample=biochar$shoot.weight..g.)) + stat_qq()) 
+p5<-ggplot(shootweight, aes(.fitted, .resid))+geom_point()
+    p3<-p3+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+    p3<-p3+xlab("Fitted values")+ylab("Residuals")
+    p3<-p3+ggtitle("Residual vs Fitted Plot")+theme_bw()
+p5
+shapiro.test(biochar$shoot.weight..g.)
+boxcox(shootweight, data = biochar,
+       lambda = seq(-2.5, 0, length = 10))
+# Transformed model
+inverseshootweight <- 1 / (biochar$shoot.weight..g.)
+model5 <- aov(inverseshootweight~biochar$Wheat*biochar$Soil*biochar$Biochar)
+(qq5 <- ggplot(biochar, aes(sample=inverseshootweight)) + stat_qq() ) 
+p5<-ggplot(model5, aes(.fitted, .resid))+geom_point()
+    p3<-p3+stat_smooth(method="loess")+geom_hline(yintercept=0, col="red", linetype="dashed")
+    p3<-p3+xlab("Fitted values")+ylab("Residuals")
+    p3<-p3+ggtitle("Residual vs Fitted Plot")+theme_bw()
+p5
+shapiro.test(inverseshootweight)
+summary(model5)
+newmodel5 <- aov(inverseshootweight~biochar$Wheat+biochar$Soil + biochar$Wheat*biochar$Soil)
+summary(newmodel5)
+wheatsoil <- ggplot(aes(x=Soil,color=Wheat,group=Wheat,y=inverseshootweight),data=biochar) +
+  stat_summary(fun.y=mean,geom="point") +
+  stat_summary(fun.y=mean,geom="line")
+wheatsoil
+(posthocint <- TukeyHSD(x=newmodel5,'biochar$Wheat:biochar$Soil', conf.level=0.95))
+```
+
+
